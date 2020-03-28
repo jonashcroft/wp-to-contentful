@@ -151,18 +151,31 @@ function reducePostData() {
 
 function getPostFeaturedMedia(postMedia) {
   let featuredMedia = {}
+  console.log(postMedia)
 
   if (postMedia === 0) {
     return featuredMedia
   }
-  let mediaObj = getApiDataType(`media/${postedia}`)[0];
+  let mediaData = getApiDataType(`media`)[0];
+
+
+  let mediaObj = mediaData.data.filter(obj => {
+    if (obj.id === postMedia) {
+      return obj
+    }
+  })[0];
+
+  // console.log(mediaData[0].id)
+  console.log(mediaObj.id)
 
   featuredMedia = {
     link: mediaObj.source_url,
     description: mediaObj.alt_text,
     title:  mediaObj.alt_text,
-    postId: postData.post
+    postId: mediaObj.post
   }
+
+  console.log(featuredMedia)
 
   return featuredMedia
 }
