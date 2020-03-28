@@ -13,50 +13,6 @@ let wpData = {
 
 let apiData = {}
 
-const wpFields = {
-  // 'type': {
-  //   'contentful_id': 'blogPost',
-  //   'value': 'post',
-  //   'requiresExtra': false
-  // },
-  'title': {
-    'contentful_id': 'postTitle',
-    'value': '',
-    'requiresExtra': false
-  },
-  'slug': {
-    'contentful_id': 'slug',
-    'value': '',
-    'requiresExtra': false
-  },
-  'content': {
-    'contentful_id': 'content',
-    'value': '',
-    'requiresExtra': false
-  },
-  'date': {
-    'contentful_id': 'publishedAt',
-    'value': '',
-    'requiresExtra': false
-  },
-  'featured_media': {
-    'contentful_id': 'featuredImage',
-    'value': '',
-    'requiresExtra': true
-  },
-  'tags': {
-    'contentful_id': 'tags',
-    'value': '',
-    'requiresExtra': true
-  },
-  'categories': {
-    'contentful_id': 'categories',
-    'value': '',
-    'requiresExtra': true
-  }
-}
-// Object.freeze(wpFields)
-
 function migrateContent() {
   let promises = [];
 
@@ -105,21 +61,6 @@ function mapData() {
   }
 
   reducePostData();
-  // assignValueToTags();
-}
-
-function assignValueToTags() {
-  console.log(`Assigning string values to post tag IDs`)
-  let apiTags = getApiDataType('tags')
-
-  console.log(apiTags);
-
-  for (const [key, post] of Object.entries(wpData.posts)) {
-    // console.log(key)
-    // console.log(post)
-
-    console.log(post.tags)
-  }
 }
 
 function reducePostData() {
@@ -128,6 +69,8 @@ function reducePostData() {
   let apiPosts = getApiDataType('posts')[0];
   // Loop over posts
   for (let [key, postData] of Object.entries(apiPosts.data)) {
+    console.log(`----`)
+    console.log(`Processing ${postData.slug}`)
     // Create base object with only limited keys (e.g. just 'slug', 'categories', 'title') etc.
     let fieldData = {
       id: postData.id,
@@ -150,23 +93,20 @@ function reducePostData() {
 }
 
 function getPostFeaturedMedia(postMedia) {
+  console.log(`- Getting Featured Image`)
   let featuredMedia = {}
-  console.log(postMedia)
 
   if (postMedia === 0) {
     return featuredMedia
   }
-  let mediaData = getApiDataType(`media`)[0];
 
+  let mediaData = getApiDataType(`media`)[0];
 
   let mediaObj = mediaData.data.filter(obj => {
     if (obj.id === postMedia) {
       return obj
     }
   })[0];
-
-  // console.log(mediaData[0].id)
-  console.log(mediaObj.id)
 
   featuredMedia = {
     link: mediaObj.source_url,
@@ -175,12 +115,11 @@ function getPostFeaturedMedia(postMedia) {
     postId: mediaObj.post
   }
 
-  console.log(featuredMedia)
-
   return featuredMedia
 }
 
 function getPostBodyImages(postData) {
+  console.log(`- Getting content images`)
   let imageRegex = /<img\s[^>]*?src\s*=\s*['\"]([^'\"]*?)['\"][^>]*?>/g
   let bodyImages = []
 
@@ -199,6 +138,7 @@ function getPostBodyImages(postData) {
 }
 
 function getPostLabels(postItems, labelType) {
+  console.log(`- Getting post ${labelType}`)
   let labels = []
   let apiTag = getApiDataType(labelType)[0];
 
