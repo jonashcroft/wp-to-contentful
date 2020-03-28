@@ -3,10 +3,12 @@ const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
 const axios = require('axios')
 const fs = require('fs');
 
+// API Endpoints we want to get data from
 let wpData = {
   'posts': [],
   'tags': [],
-  'categories': []
+  'categories': [],
+  'media': []
 };
 
 let apiData = {}
@@ -65,7 +67,6 @@ function migrateContent() {
   }
 
   // console.log(promises)
-
   getAllData(promises)
     .then(response =>{
       apiData = response
@@ -135,7 +136,7 @@ function reducePostData() {
       slug: postData.slug,
       content: postData.content.rendered,
       publishedAt: postData.date_gmt + '+00:00',
-      featuredImage: postData.featured_media,
+      featuredImage: getPostFeaturedMedia(postData.featured_media),
       tags: getPostLabels(postData.tags, 'tags'),
       categories: getPostLabels(postData.categories, 'categories'),
       contentImages: getPostBodyImages(postData)
@@ -146,6 +147,24 @@ function reducePostData() {
 
   console.log(`...Done!`)
   writeDataToFile()
+}
+
+function getPostFeaturedMedia(postMedia) {
+  let featuredMedia = {}
+
+  if (postMedia === 0) {
+    return featuredMedia
+  }
+  let mediaObj = getApiDataType(`media/${postedia}`)[0];
+
+  featuredMedia = {
+    link: mediaObj.source_url,
+    description: mediaObj.alt_text,
+    title:  mediaObj.alt_text,
+    postId: postData.post
+  }
+
+  return featuredMedia
 }
 
 function getPostBodyImages(postData) {
