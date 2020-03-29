@@ -1,6 +1,8 @@
 const contentful = require('contentful-management')
 const axios = require('axios')
 const fs = require('fs');
+const jsdom = require("jsdom");
+const { JSDOM } = jsdom;
 
 const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
 
@@ -77,17 +79,16 @@ function mapData() {
   let apiPosts = getApiDataType('posts')[0];
   // Loop over posts
   for (let [key, postData] of Object.entries(apiPosts.data)) {
-    console.log(`----`)
-    console.log(`Processing ${postData.slug}`)
+    console.log(`Parsing ${postData.slug}`)
     // Create base object with only limited keys (e.g. just 'slug', 'categories', 'title') etc.
     let fieldData = {
       id: postData.id,
       type: postData.type,
       postTitle: postData.title.rendered,
       slug: postData.slug,
-      content: postData.content.rendered,
+      content: `<div>${postData.content.rendered}</div>`,
       publishedAt: postData.date_gmt + '+00:00',
-      featuredImage: getPostFeaturedMedia(postData.featured_media),
+      // featuredImage: getPostFeaturedMedia(postData.featured_media),
       tags: getPostLabels(postData.tags, 'tags'),
       categories: getPostLabels(postData.categories, 'categories'),
       contentImages: getPostBodyImages(postData)
@@ -102,14 +103,12 @@ function mapData() {
 }
 
 function getPostFeaturedMedia(postMedia) {
-  console.log(`- Getting Featured Image`)
+  // console.log(`- Getting Featured Image`)
   let featuredMedia = {}
 
   if (postMedia === 0) {
     return featuredMedia
   }
-
-  let mediaData = getApiDataType(`media`)[0];
 
   let mediaObj = mediaData.data.filter(obj => {
     if (obj.id === postMedia) {
@@ -129,9 +128,28 @@ function getPostFeaturedMedia(postMedia) {
 }
 
 function getPostBodyImages(postData) {
-  console.log(`- Getting content images`)
+  // console.log(`- Getting content images`)
   let imageRegex = /<img\s[^>]*?src\s*=\s*['\"]([^'\"]*?)['\"][^>]*?>/g
   let bodyImages = []
+
+  if (postData.featured_media > 0) {
+    let mediaData = getApiDataType(`media`)[0];
+
+    let mediaObj = mediaData.data.filter(obj => {
+      if (obj.id === postData.featured_media) {
+        return obj
+      }
+    })[0];
+
+    bodyImages.push({
+      link: mediaObj.source_url,
+      description: mediaObj.alt_text,
+      title:  mediaObj.alt_text,
+      postId: mediaObj.post,
+      featured: true
+    })
+
+  }
 
   // console.log(imageRegex.exec(postData.content.rendered))
   while (foundImage = imageRegex.exec(postData.content.rendered)) {
@@ -141,14 +159,15 @@ function getPostBodyImages(postData) {
       link: foundImage[1],
       description: alt,
       title: alt,
-      postId: postData.id
+      postId: postData.id,
+      featured: false
     })
   }
   return bodyImages
 }
 
 function getPostLabels(postItems, labelType) {
-  console.log(`- Getting post ${labelType}`)
+  // console.log(`- Getting post ${labelType}`)
   let labels = []
   let apiTag = getApiDataType(labelType)[0];
 
@@ -191,27 +210,7 @@ function createForContentful() {
   ctfClient.getSpace(ctfData.spaceId)
   .then((space) => space.getEnvironment(ctfData.environment))
   .then((environment) => {
-
-    let assetsUploaded = createContentfulAssets(environment)
-
-    if (assetsUploaded === true) {
-      console.log(`upload asset done`)
-    }
-
-    // for (const wpPost of wpData.posts) {
-      // console.log(wpPost.slug)
-    // }
-
-    // environment.createEntry('blogPost', {
-    //   fields: {
-    //     postTitle: {
-    //       'en-US': 'this is my post title'
-    //     },
-    //     slug: {
-    //       'en-US': 'this-is-the-post-slug'
-    //     },
-    //   }
-    // })
+    createContentfulAssets(environment);
   })
   .catch((error) => {
     console.log(error)
@@ -220,20 +219,21 @@ function createForContentful() {
 }
 
 function createContentfulAssets(environment) {
-  let assetsUploaded = false
+  let assets = []
+  let queueLength = 0
+  let queuePosition = 0
 
-  const postLength = (wpData.posts.length - 1)
-
-  console.log(wpData.posts.length)
+  for (let [index, wpPost] of wpData.posts.entries()) {
+    for (const [imgIndex, contentImage] of wpPost.contentImages.entries()) {
+      queueLength++
+    }
+  }
 
   // Create the assets FIRST so that we can attach them to posts later.
   for (let [index, wpPost] of wpData.posts.entries()) {
-    // setTimeout(function() {
     setTimeout(function() {
       for (const [imgIndex, contentImage] of wpPost.contentImages.entries()) {
         // Rate limiting will occur, there is ABSOLUTLY a better way to do this.
-        // console.log(`hello`)
-        // console.log(index)
         environment.createAsset({
           fields: {
             title: {
@@ -245,7 +245,7 @@ function createContentfulAssets(environment) {
             file: {
               'en-GB': {
                 contentType: 'image/jpeg',
-                fileName: `${contentImage.title.toLowerCase().replace(/\s/g, '-')}.jpg`,
+                fileName: contentImage.link.split('/').pop(),
                 upload: encodeURI(contentImage.link)
               }
             }
@@ -255,12 +255,91 @@ function createContentfulAssets(environment) {
         .then((asset) => asset.publish())
         .then((asset) => {
           console.log(asset)
+          console.log(asset.fields.file['en-GB'].fileName)
+          assets.push({
+            assetId: asset.sys.id,
+            fileName: asset.fields.file['en-GB'].fileName
+          })
+
+          console.log(`${queuePosition} vs ${queueLength}`)
+
+          queuePosition++
+          if (queuePosition === queueLength) {
+            assetsPublished = true
+            console.log('FINISHED')
+            createContentfulPosts(environment, assets)
+          }
         })
       }
     }, 1000 + (3000 * index));
   }
+}
 
-  return assetsUploaded
+function createContentfulPosts(environment, assets) {
+  console.log(`begin to publish posts...`)
+  const dom = new JSDOM();
+  domDoc = dom.window.document
+
+    for (const [index, wpPost] of wpData.posts.entries()) {
+      console.log(wpPost.slug)
+
+      let fakeDiv = domDoc.createElement('div')
+      fakeDiv.insertAdjacentHTML('beforeend', wpPost.content)
+
+      let postFields = {
+        postTitle: {
+          'en-GB': wpPost.postTitle
+        },
+        slug: {
+          'en-GB': wpPost.slug
+        },
+        publishDate: {
+          'en-GB': wpPost.publishedAt
+        },
+        // content: {
+        //   'en-GB': fakeDiv.innerHTML
+        // },
+        categories: {
+          'en-GB': wpPost.categories
+        },
+        tags: {
+          'en-GB': wpPost.tags
+        }
+      } 
+
+      if (wpPost.featuredImage.hasOwnProperty('link')) {
+        let imageAssetId = assets.filter(asset => {
+          console.log(asset.fileName)
+          console.log(wpPost.featuredImage.link)
+          // if (asset.fileName === wpPost.featuredImage.link.split('/').pop()) {
+            // return asset.assetId
+          // }
+        })[0];
+
+        console.log(imageAssetId)
+
+        postFields.featuredImage = {
+          'en-GB': {
+            sys: {
+              type: 'Link',
+              linkType: 'Asset',
+              id: imageAssetId
+            }
+          }
+        }
+      }
+
+      setTimeout(function() {
+        // environment.createEntry('blogPost', {
+        //   fields: postFields
+        // })
+        // .then((entry) => entry.publish())
+        // .then((entry) => {
+        //   console.log(entry)
+        // })
+      }, 1000 + (3000 * index));
+
+    }
 }
 
 migrateContent();
