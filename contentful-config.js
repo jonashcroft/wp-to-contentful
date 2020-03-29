@@ -1,6 +1,11 @@
-const contentful = require('contentful')
+const ctfData = {
+  accessToken: 'CFPAT-GoOEMcXAMoM0e_yqFcIoV6-s8LjADlZT4qyHIlp8W1A',
+  environment: 'master',
+  spaceId: 'yny9a84qp5hk'
+}
 
-const ctfClient = contentful.createClient({
-  space: 'yny9a84qp5hk',
-  accessToken: 'rpiAVXFjzZqgKuOX2KsYZ6MY9S9BV1FxXtzqfTiT9d8'
-})
+const ctfData = {
+  accessToken: '[ACCESS_TOKEN]',
+  environment: '[ENVIRONMENT_ID]',
+  spaceId: '[SPACE_ID]'
+}

@@ -1,9 +1,18 @@
-const ctfClient = require('./contentful-config')
-
+const contentful = require('contentful-management')
 const axios = require('axios')
 const fs = require('fs');
 
 const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
+
+const ctfData = {
+  accessToken: '[ACCESS_TOKEN]',
+  environment: '[ENVIRONMENT_ID]',
+  spaceId: '[SPACE_ID]'
+}
+
+const ctfClient = contentful.createClient({
+  accessToken: ctfData.accessToken
+})
 
 // API Endpoints we want to get data from
 let wpData = {
@@ -58,7 +67,6 @@ function fetchData(URL) {
 // Get our entire API response and filter it down to only show content that we want to include
 function mapData() {
   // Get WP posts from API object
-  let apiPosts = getApiDataType('posts')[0];
 
   // Loop over our conjoined data structure and append data types to each child.
   for (const [index, [key, value]] of Object.entries(Object.entries(wpData))) {
@@ -66,6 +74,7 @@ function mapData() {
   }
 
   console.log(`Reducing posts API data to only include fields we want`)
+  let apiPosts = getApiDataType('posts')[0];
   // Loop over posts
   for (let [key, postData] of Object.entries(apiPosts.data)) {
     console.log(`----`)
@@ -178,7 +187,25 @@ function writeDataToFile() {
 }
 
 function contentfulCreateAssets() {
+  ctfClient.getSpace(ctfData.spaceId)
+  .then((space) => space.getEnvironment(ctfData.environment))
+  .then((environment) => {
 
+    for (const wpPost of wpData.posts) {
+      console.log(wpPost.slug)
+    }
+
+    // environment.createEntry('blogPost', {
+    //   fields: {
+    //     postTitle: {
+    //       'en-US': 'this is my post title'
+    //     },
+    //     slug: {
+    //       'en-US': 'this-is-the-post-slug'
+    //     },
+    //   }
+    // })
+  })
 }
 
 migrateContent();
