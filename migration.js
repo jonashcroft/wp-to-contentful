@@ -1,8 +1,6 @@
 const contentful = require('contentful-management')
 const axios = require('axios')
 const fs = require('fs');
-const jsdom = require("jsdom");
-const { JSDOM } = jsdom;
 
 const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
 
@@ -287,9 +285,9 @@ function createContentfulPosts(environment, assets) {
         publishDate: {
           'en-GB': wpPost.publishedAt
         },
-        // content: {
-        //   'en-GB': fakeDiv.innerHTML
-        // },
+        content: {
+          'en-GB': formatRichTextPost(wpPost.content)
+        },
         categories: {
           'en-GB': wpPost.categories
         },
@@ -305,7 +303,6 @@ function createContentfulPosts(environment, assets) {
           }
         })[0];
 
-        // TODO: THIS is erroring "details": "The type of \"value\" is incorrect, expected type: Symbol",
         postFields.featuredImage = {
           'en-GB': {
             sys: {
@@ -328,6 +325,34 @@ function createContentfulPosts(environment, assets) {
       }, 1000 + (3000 * index));
 
     }
+}
+
+function formatRichTextPost(content) {
+  // TODO: split  at paragraphs, create a node for each.
+
+  // fields: {
+  //   '<field_name>': {
+  //     '<language>': {
+  //       content: [
+  //         {
+  //           nodeType:"paragraph",
+  //           data: {},
+  //           content: [
+  //             {
+  //               value: "lorem ...",
+  //               nodeType:"text",
+  //               marks: [],
+  //               data: {}
+  //             }
+  //           ]
+  //         }
+  //       ],
+  //       data: {},
+  //       nodeType: 'document'
+  //     }
+  //   }
+  // }
+  return content
 }
 
 migrateContent();
