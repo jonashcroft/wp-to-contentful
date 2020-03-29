@@ -192,11 +192,15 @@ function createForContentful() {
   .then((space) => space.getEnvironment(ctfData.environment))
   .then((environment) => {
 
-    createContentfulAssets(environment)
+    let assetsUploaded = createContentfulAssets(environment)
 
-    for (const wpPost of wpData.posts) {
-      // console.log(wpPost.slug)
+    if (assetsUploaded === true) {
+      console.log(`upload asset done`)
     }
+
+    // for (const wpPost of wpData.posts) {
+      // console.log(wpPost.slug)
+    // }
 
     // environment.createEntry('blogPost', {
     //   fields: {
@@ -210,42 +214,53 @@ function createForContentful() {
     // })
   })
   .catch((error) => {
-    console.log(error.details.errors.message)
+    console.log(error)
     return error
   })
 }
 
-createContentfulAssets(environment) {
+function createContentfulAssets(environment) {
+  let assetsUploaded = false
 
-  const postLength = wpData.posts.length
+  const postLength = (wpData.posts.length - 1)
+
+  console.log(wpData.posts.length)
 
   // Create the assets FIRST so that we can attach them to posts later.
-  for (const wpPost of wpData.posts) {
-    for (const [index, contentImage] of wpPost.contentImages.entries()) {
-      console.log(index)
-      // Rate limiting will occur, there is ABSOLUTLY a better way to do this.
-      setTimeout(() => {
-        // console.log(`Creating asset ${contentImage.link}`)
-        // environment.createAsset({
-        //   fields: {
-        //     title: {
-        //       'en-GB': contentImage.title
-        //     },
-        //     description: {
-        //       'en-GB': contentImage.description
-        //     },
-        //     file: {
-        //       'en-GB': {
-        //         contentType: 'image/jpeg',
-        //         fileName: `${contentImage.title.toLowerCase().replace(/\s/g, '-')}.jpg`,
-        //         upload: encodeURI(contentImage.link)
-        //       }
-        //     }
-        //   }
-        // })
-      }, 5000)
-    }
+  for (let [index, wpPost] of wpData.posts.entries()) {
+    // setTimeout(function() {
+    setTimeout(function() {
+      for (const [imgIndex, contentImage] of wpPost.contentImages.entries()) {
+        // Rate limiting will occur, there is ABSOLUTLY a better way to do this.
+        // console.log(`hello`)
+        // console.log(index)
+        environment.createAsset({
+          fields: {
+            title: {
+              'en-GB': contentImage.title
+            },
+            description: {
+              'en-GB': contentImage.description
+            },
+            file: {
+              'en-GB': {
+                contentType: 'image/jpeg',
+                fileName: `${contentImage.title.toLowerCase().replace(/\s/g, '-')}.jpg`,
+                upload: encodeURI(contentImage.link)
+              }
+            }
+          }
+        })
+        .then((asset) => asset.processForAllLocales())
+        .then((asset) => asset.publish())
+        .then((asset) => {
+          console.log(asset)
+        })
+      }
+    }, 1000 + (3000 * index));
   }
+
+  return assetsUploaded
 }
 
 migrateContent();
