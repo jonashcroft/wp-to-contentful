@@ -98,7 +98,7 @@ function mapData() {
 
   console.log(`...Done!`)
   writeDataToFile()
-  contentfulCreateAssets()
+  createForContentful()
 }
 
 function getPostFeaturedMedia(postMedia) {
@@ -187,37 +187,12 @@ function writeDataToFile() {
   });
 }
 
-function contentfulCreateAssets() {
+function createForContentful() {
   ctfClient.getSpace(ctfData.spaceId)
   .then((space) => space.getEnvironment(ctfData.environment))
   .then((environment) => {
 
-    // Create the assets FIRST so that we can attach them to posts later.
-    for (const wpPost of wpData.posts) {
-      for (const contentImage of wpPost.contentImages) {
-        // Rate limiting will occur, there is ABSOLUTLY a better way to do this.
-        setTimeout(() => {
-          console.log(`Creating asset ${contentImage.link}`)
-          environment.createAsset({
-            fields: {
-              title: {
-                'en-GB': contentImage.title
-              },
-              description: {
-                'en-GB': contentImage.description
-              },
-              file: {
-                'en-GB': {
-                  contentType: 'image/jpeg',
-                  fileName: `${contentImage.title.toLowerCase().replace(/\s/g, '-')}.jpg`,
-                  upload: encodeURI(contentImage.link)
-                }
-              }
-            }
-          })
-        }, 5000)
-      }
-    }
+    createContentfulAssets(environment)
 
     for (const wpPost of wpData.posts) {
       // console.log(wpPost.slug)
@@ -238,6 +213,39 @@ function contentfulCreateAssets() {
     console.log(error.details.errors.message)
     return error
   })
+}
+
+createContentfulAssets(environment) {
+
+  const postLength = wpData.posts.length
+
+  // Create the assets FIRST so that we can attach them to posts later.
+  for (const wpPost of wpData.posts) {
+    for (const [index, contentImage] of wpPost.contentImages.entries()) {
+      console.log(index)
+      // Rate limiting will occur, there is ABSOLUTLY a better way to do this.
+      setTimeout(() => {
+        // console.log(`Creating asset ${contentImage.link}`)
+        // environment.createAsset({
+        //   fields: {
+        //     title: {
+        //       'en-GB': contentImage.title
+        //     },
+        //     description: {
+        //       'en-GB': contentImage.description
+        //     },
+        //     file: {
+        //       'en-GB': {
+        //         contentType: 'image/jpeg',
+        //         fileName: `${contentImage.title.toLowerCase().replace(/\s/g, '-')}.jpg`,
+        //         upload: encodeURI(contentImage.link)
+        //       }
+        //     }
+        //   }
+        // })
+      }, 5000)
+    }
+  }
 }
 
 migrateContent();
