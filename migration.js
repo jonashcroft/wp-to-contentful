@@ -1,7 +1,9 @@
-const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
+const ctfClient = require('./contentful-config')
 
 const axios = require('axios')
 const fs = require('fs');
+
+const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
 
 // API Endpoints we want to get data from
 let wpData = {
@@ -55,18 +57,15 @@ function fetchData(URL) {
 
 // Get our entire API response and filter it down to only show content that we want to include
 function mapData() {
+  // Get WP posts from API object
+  let apiPosts = getApiDataType('posts')[0];
+
   // Loop over our conjoined data structure and append data types to each child.
   for (const [index, [key, value]] of Object.entries(Object.entries(wpData))) {
     apiData[index].endpoint = key
   }
 
-  reducePostData();
-}
-
-function reducePostData() {
   console.log(`Reducing posts API data to only include fields we want`)
-  // Get WP posts from API
-  let apiPosts = getApiDataType('posts')[0];
   // Loop over posts
   for (let [key, postData] of Object.entries(apiPosts.data)) {
     console.log(`----`)
@@ -90,6 +89,7 @@ function reducePostData() {
 
   console.log(`...Done!`)
   writeDataToFile()
+  contentfulCreateAssets()
 }
 
 function getPostFeaturedMedia(postMedia) {
@@ -157,13 +157,12 @@ function getPostLabels(postItems, labelType) {
 
 // Helper function to get a specific data tree for a type of resource.
 function getApiDataType(resourceName) {
-  let test = apiData.filter(obj => {
+  let apiType = apiData.filter(obj => {
     if (obj.endpoint === resourceName) {
       return obj
     }
   });
-  return test
-
+  return apiType
 }
 
 function writeDataToFile() {
@@ -171,11 +170,14 @@ function writeDataToFile() {
 
   fs.writeFile(`./posts.json`, JSON.stringify(wpData, null, 2), (err) => {
     if (err) {
-        console.error(err);
-        return;
+      console.error(err);
+      return;
     };
     console.log(`...Done!`)
-});
+  });
+}
+
+function contentfulCreateAssets() {
 
 }
 
