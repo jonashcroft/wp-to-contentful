@@ -86,7 +86,7 @@ function mapData() {
       type: postData.type,
       postTitle: postData.title.rendered,
       slug: postData.slug,
-      content: `<div>${postData.content.rendered}</div>`,
+      content: postData.content.rendered,
       publishedAt: postData.date_gmt + '+00:00',
       featuredImage: postData.featured_media,
       tags: getPostLabels(postData.tags, 'tags'),
@@ -254,8 +254,6 @@ function createContentfulAssets(environment) {
         .then((asset) => asset.processForAllLocales())
         .then((asset) => asset.publish())
         .then((asset) => {
-          console.log(asset)
-          console.log(asset.fields.file['en-GB'].fileName)
           assets.push({
             assetId: asset.sys.id,
             fileName: asset.fields.file['en-GB'].fileName
@@ -277,15 +275,8 @@ function createContentfulAssets(environment) {
 
 function createContentfulPosts(environment, assets) {
   console.log(`begin to publish posts...`)
-  const dom = new JSDOM();
-  domDoc = dom.window.document
 
-    for (const [index, wpPost] of wpData.posts.entries()) {
-      console.log(wpPost.slug)
-
-      let fakeDiv = domDoc.createElement('div')
-      fakeDiv.insertAdjacentHTML('beforeend', wpPost.content)
-
+  for (const [index, wpPost] of wpData.posts.entries()) {
       let postFields = {
         postTitle: {
           'en-GB': wpPost.postTitle
@@ -308,16 +299,11 @@ function createContentfulPosts(environment, assets) {
       } 
 
       if (wpPost.featuredImage > 0) {
-        let imageAssetId = assets.filter(asset => {
-          // console.log(asset.fileName)
-          // console.log(wpPost.contentImages[0].link.split('/').pop())
+        let assetObj = assets.filter(asset => {
           if (asset.fileName === wpPost.contentImages[0].link.split('/').pop()) {
-            return asset.assetId
+            return asset
           }
         })[0];
-        
-        // TODO: this is wrong. returning object
-        console.log(`returned asset id: ${imageAssetId}`)
 
         // TODO: THIS is erroring "details": "The type of \"value\" is incorrect, expected type: Symbol",
         postFields.featuredImage = {
@@ -325,7 +311,7 @@ function createContentfulPosts(environment, assets) {
             sys: {
               type: 'Link',
               linkType: 'Asset',
-              id: imageAssetId
+              id: assetObj.assetId
             }
           }
         }
