@@ -121,7 +121,8 @@ function getPostFeaturedMedia(postMedia) {
     link: mediaObj.source_url,
     description: mediaObj.alt_text,
     title:  mediaObj.alt_text,
-    postId: mediaObj.post
+    postId: mediaObj.post,
+    mediaId: postMedia
   }
 
   return featuredMedia
@@ -191,8 +192,35 @@ function contentfulCreateAssets() {
   .then((space) => space.getEnvironment(ctfData.environment))
   .then((environment) => {
 
+    // Create the assets FIRST so that we can attach them to posts later.
     for (const wpPost of wpData.posts) {
-      console.log(wpPost.slug)
+      for (const contentImage of wpPost.contentImages) {
+        // Rate limiting will occur, there is ABSOLUTLY a better way to do this.
+        setTimeout(() => {
+          console.log(`Creating asset ${contentImage.link}`)
+          environment.createAsset({
+            fields: {
+              title: {
+                'en-GB': contentImage.title
+              },
+              description: {
+                'en-GB': contentImage.description
+              },
+              file: {
+                'en-GB': {
+                  contentType: 'image/jpeg',
+                  fileName: `${contentImage.title.toLowerCase().replace(/\s/g, '-')}.jpg`,
+                  upload: encodeURI(contentImage.link)
+                }
+              }
+            }
+          })
+        }, 5000)
+      }
+    }
+
+    for (const wpPost of wpData.posts) {
+      // console.log(wpPost.slug)
     }
 
     // environment.createEntry('blogPost', {
@@ -205,6 +233,10 @@ function contentfulCreateAssets() {
     //     },
     //   }
     // })
+  })
+  .catch((error) => {
+    console.log(error.details.errors.message)
+    return error
   })
 }
 
