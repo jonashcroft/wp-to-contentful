@@ -88,7 +88,7 @@ function mapData() {
       slug: postData.slug,
       content: `<div>${postData.content.rendered}</div>`,
       publishedAt: postData.date_gmt + '+00:00',
-      // featuredImage: getPostFeaturedMedia(postData.featured_media),
+      featuredImage: postData.featured_media,
       tags: getPostLabels(postData.tags, 'tags'),
       categories: getPostLabels(postData.categories, 'categories'),
       contentImages: getPostBodyImages(postData)
@@ -145,10 +145,10 @@ function getPostBodyImages(postData) {
       link: mediaObj.source_url,
       description: mediaObj.alt_text,
       title:  mediaObj.alt_text,
+      mediaId: mediaObj.id,
       postId: mediaObj.post,
       featured: true
     })
-
   }
 
   // console.log(imageRegex.exec(postData.content.rendered))
@@ -307,17 +307,19 @@ function createContentfulPosts(environment, assets) {
         }
       } 
 
-      if (wpPost.featuredImage.hasOwnProperty('link')) {
+      if (wpPost.featuredImage > 0) {
         let imageAssetId = assets.filter(asset => {
-          console.log(asset.fileName)
-          console.log(wpPost.featuredImage.link)
-          // if (asset.fileName === wpPost.featuredImage.link.split('/').pop()) {
-            // return asset.assetId
-          // }
+          // console.log(asset.fileName)
+          // console.log(wpPost.contentImages[0].link.split('/').pop())
+          if (asset.fileName === wpPost.contentImages[0].link.split('/').pop()) {
+            return asset.assetId
+          }
         })[0];
+        
+        // TODO: this is wrong. returning object
+        console.log(`returned asset id: ${imageAssetId}`)
 
-        console.log(imageAssetId)
-
+        // TODO: THIS is erroring "details": "The type of \"value\" is incorrect, expected type: Symbol",
         postFields.featuredImage = {
           'en-GB': {
             sys: {
@@ -330,13 +332,13 @@ function createContentfulPosts(environment, assets) {
       }
 
       setTimeout(function() {
-        // environment.createEntry('blogPost', {
-        //   fields: postFields
-        // })
-        // .then((entry) => entry.publish())
-        // .then((entry) => {
-        //   console.log(entry)
-        // })
+        environment.createEntry('blogPost', {
+          fields: postFields
+        })
+        .then((entry) => entry.publish())
+        .then((entry) => {
+          console.log(entry)
+        })
       }, 1000 + (3000 * index));
 
     }
