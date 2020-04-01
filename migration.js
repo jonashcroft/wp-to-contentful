@@ -9,10 +9,12 @@ const ctfData = {
   environment: '[ENVIRONMENT_ID]',
   spaceId: '[SPACE_ID]'
 }
+Object.freeze(ctfData);
 
 const ctfClient = contentful.createClient({
   accessToken: ctfData.accessToken
 })
+
 
 // API Endpoints we want to get data from
 let wpData = {
@@ -85,7 +87,7 @@ function mapData() {
       postTitle: postData.title.rendered,
       slug: postData.slug,
       content: postData.content.rendered,
-      publishedAt: postData.date_gmt + '+00:00',
+      publishDate: postData.date_gmt + '+00:00',
       featuredImage: postData.featured_media,
       tags: getPostLabels(postData.tags, 'tags'),
       categories: getPostLabels(postData.categories, 'categories'),
@@ -96,33 +98,9 @@ function mapData() {
   }
 
   console.log(`...Done!`)
-  writeDataToFile()
-  createForContentful()
-}
-
-function getPostFeaturedMedia(postMedia) {
-  // console.log(`- Getting Featured Image`)
-  let featuredMedia = {}
-
-  if (postMedia === 0) {
-    return featuredMedia
-  }
-
-  let mediaObj = mediaData.data.filter(obj => {
-    if (obj.id === postMedia) {
-      return obj
-    }
-  })[0];
-
-  featuredMedia = {
-    link: mediaObj.source_url,
-    description: mediaObj.alt_text,
-    title:  mediaObj.alt_text,
-    postId: mediaObj.post,
-    mediaId: postMedia
-  }
-
-  return featuredMedia
+  
+  writeDataToFile(wpData, 'wpPosts');
+  createForContentful();
 }
 
 function getPostBodyImages(postData) {
@@ -192,10 +170,10 @@ function getApiDataType(resourceName) {
   return apiType
 }
 
-function writeDataToFile() {
+function writeDataToFile(dataTree, dataType) {
   console.log(`Writing data to a file`)
 
-  fs.writeFile(`./posts.json`, JSON.stringify(wpData, null, 2), (err) => {
+  fs.writeFile(`./${dataType}.json`, JSON.stringify(dataTree, null, 2), (err) => {
     if (err) {
       console.error(err);
       return;
@@ -274,61 +252,206 @@ function createContentfulAssets(environment) {
 function createContentfulPosts(environment, assets) {
   console.log(`begin to publish posts...`)
 
-  for (const [index, wpPost] of wpData.posts.entries()) {
-      let postFields = {
-        postTitle: {
-          'en-GB': wpPost.postTitle
-        },
-        slug: {
-          'en-GB': wpPost.slug
-        },
-        publishDate: {
-          'en-GB': wpPost.publishedAt
-        },
-        content: {
-          'en-GB': formatRichTextPost(wpPost.content)
-        },
-        categories: {
-          'en-GB': wpPost.categories
-        },
-        tags: {
-          'en-GB': wpPost.tags
+  // let postFields = {}
+  /**
+   * Dynamically build our Contentful data object
+   * using the keys we built whilst reducing the WP Post data.alias
+   * 
+   * Results:
+   *  postTitle: {
+   *    'en-GB': wpPost.postTitle
+   *   },
+   *  slug: {
+   *    'en-GB': wpPost.slug
+   *  },
+   */
+  let promises = []
+
+  for (const [index, [key, value]] of Object.entries(Object.entries(wpData.posts))) {
+    apiData[index].endpoint = key
+
+    let objectValue = value
+
+    if (key === 'content') {
+      objectValue = formatRichTextPost(value)
+    }
+
+    if (key === 'featuredImage' && value > 0) {
+      let assetObj = assets.filter(asset => {
+        if (asset.fileName === wpPost.contentImages[0].link.split('/').pop()) {
+          return asset
         }
-      } 
+      })[0];
 
-      if (wpPost.featuredImage > 0) {
-        let assetObj = assets.filter(asset => {
-          if (asset.fileName === wpPost.contentImages[0].link.split('/').pop()) {
-            return asset
-          }
-        })[0];
-
-        postFields.featuredImage = {
-          'en-GB': {
-            sys: {
-              type: 'Link',
-              linkType: 'Asset',
-              id: assetObj.assetId
-            }
+      postFields.featuredImage = {
+        'en-GB': {
+          sys: {
+            type: 'Link',
+            linkType: 'Asset',
+            id: assetObj.assetId
           }
         }
       }
-
-      setTimeout(function() {
-        environment.createEntry('blogPost', {
-          fields: postFields
-        })
-        .then((entry) => entry.publish())
-        .then((entry) => {
-          console.log(entry)
-        })
-      }, 1000 + (3000 * index));
-
     }
+
+    postFields[key] = {
+      'en-GB': objectValue
+    }
+
+    promises.push(postFields)
+
+    setTimeout(function() {
+      environment.createEntry('blogPost', {
+        fields: postFields
+      })
+      .then((entry) => entry.publish())
+      .then((entry) => {
+        console.log(entry)
+      })
+    }, 1000 + (3000 * index));
+  }
+
+
+  // console.log(promises)
+  createContentfulEntries(promises);
+
+  /**
+   * Dynamically build our Contentful data object
+   * using the keys we built whilst reducing the WP Post data.alias
+   * 
+   * Results:
+   *  postTitle: {
+   *    'en-GB': wpPost.postTitle
+   *   },
+   *  slug: {
+   *    'en-GB': wpPost.slug
+   *  },
+   */
+  // for (const [index, [key, value]] of Object.entries(Object.entries(wpData.posts))) {
+  //   apiData[index].endpoint = key
+
+  //   let objectValue = value
+
+  //   if (key === 'content') {
+  //     objectValue = formatRichTextPost(value)
+  //   }
+
+  //   if (key === 'featuredImage' && value > 0) {
+  //     let assetObj = assets.filter(asset => {
+  //       if (asset.fileName === wpPost.contentImages[0].link.split('/').pop()) {
+  //         return asset
+  //       }
+  //     })[0];
+
+  //     postFields.featuredImage = {
+  //       'en-GB': {
+  //         sys: {
+  //           type: 'Link',
+  //           linkType: 'Asset',
+  //           id: assetObj.assetId
+  //         }
+  //       }
+  //     }
+  //   }
+
+  //   postFields[key] = {
+  //     'en-GB': objectValue
+  //   }
+
+    // setTimeout(function() {
+    //   environment.createEntry('blogPost', {
+    //     fields: postFields
+    //   })
+    //   .then((entry) => entry.publish())
+    //   .then((entry) => {
+    //     console.log(entry)
+    //   })
+    // }, 1000 + (3000 * index));
+  // }
+
+
+  // for (const [index, wpPost] of wpData.posts.entries()) {
+  //   let postFields = {
+  //     postTitle: {
+  //       'en-GB': wpPost.postTitle
+  //     },
+  //     slug: {
+  //       'en-GB': wpPost.slug
+  //     },
+  //     publishDate: {
+  //       'en-GB': wpPost.publishDate
+  //     },
+  //     content: {
+  //       'en-GB': formatRichTextPost(wpPost.content)
+  //     },
+  //     categories: {
+  //       'en-GB': wpPost.categories
+  //     },
+  //     tags: {
+  //       'en-GB': wpPost.tags
+  //     }
+  //   } 
+
+  //   if (wpPost.featuredImage > 0) {
+  //     let assetObj = assets.filter(asset => {
+  //       if (asset.fileName === wpPost.contentImages[0].link.split('/').pop()) {
+  //         return asset
+  //       }
+  //     })[0];
+
+  //     postFields.featuredImage = {
+  //       'en-GB': {
+  //         sys: {
+  //           type: 'Link',
+  //           linkType: 'Asset',
+  //           id: assetObj.assetId
+  //         }
+  //       }
+  //     }
+  //   }
+  //   setTimeout(function() {
+  //     environment.createEntry('blogPost', {
+  //       fields: postFields
+  //     })
+  //     .then((entry) => entry.publish())
+  //     .then((entry) => {
+  //       console.log(entry)
+  //     })
+  //   }, 1000 + (3000 * index));
+  // }
 }
 
+function createContentfulEntries(promises){
+  return Promise.all(promises.map((post, index) => new Promise(async resolve => {
+    let newPost
+
+    setTimeout(() => {
+      try {
+        cmsPost = await environment.createEntry('blogPost', {
+          fields: {
+            post
+          }
+        }) 
+      } catch (error) {
+        throw(Error(e))
+      }
+  
+      try {
+        await cmsPost.publish()
+      } catch(e) {
+        throw(Error(e))
+      }
+  
+      resolve(cmsPost)
+    }, 1000 + (3000 * index));
+  });
+}
+
+// Ideally we'd be using Markdown here, but I like the RichText editor 🤡
 function formatRichTextPost(content) {
   // TODO: split  at paragraphs, create a node for each.
+
+  let contentArray = content.split('<p>');
 
   // fields: {
   //   '<field_name>': {
