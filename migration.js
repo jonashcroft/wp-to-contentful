@@ -299,16 +299,6 @@ function createContentfulPosts(environment, assets) {
     }
 
     promises.push(postFields)
-
-    setTimeout(function() {
-      environment.createEntry('blogPost', {
-        fields: postFields
-      })
-      .then((entry) => entry.publish())
-      .then((entry) => {
-        console.log(entry)
-      })
-    }, 1000 + (3000 * index));
   }
 
 
@@ -427,7 +417,7 @@ function createContentfulEntries(promises){
 
     setTimeout(() => {
       try {
-        cmsPost = await environment.createEntry('blogPost', {
+        newPost = await environment.createEntry('blogPost', {
           fields: {
             post
           }
@@ -437,12 +427,12 @@ function createContentfulEntries(promises){
       }
   
       try {
-        await cmsPost.publish()
+        await newPost.publish()
       } catch(e) {
         throw(Error(e))
       }
   
-      resolve(cmsPost)
+      resolve(newPost)
     }, 1000 + (3000 * index));
   });
 }
