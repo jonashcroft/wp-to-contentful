@@ -5,9 +5,9 @@ const fs = require('fs');
 const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
 
 const ctfData = {
-  accessToken: '[ACCESS_TOKEN]',
-  environment: '[ENVIRONMENT_ID]',
-  spaceId: '[SPACE_ID]'
+  accessToken: 'CFPAT-GoOEMcXAMoM0e_yqFcIoV6-s8LjADlZT4qyHIlp8W1A',
+  environment: 'master',
+  spaceId: 'yny9a84qp5hk'
 }
 Object.freeze(ctfData);
 
@@ -77,10 +77,17 @@ function mapData() {
 
   console.log(`Reducing posts API data to only include fields we want`)
   let apiPosts = getApiDataType('posts')[0];
-  // Loop over posts
+  // Loop over posts - note: we probably /should/ be using .map() here.
   for (let [key, postData] of Object.entries(apiPosts.data)) {
     console.log(`Parsing ${postData.slug}`)
-    // Create base object with only limited keys (e.g. just 'slug', 'categories', 'title') etc.
+    /**
+     * Create base object with only limited keys
+     * (e.g. just 'slug', 'categories', 'title') etc.
+     * 
+     * The idea here is that the key will be your Contentful field name
+     * and the value be the WP post value. We will later match the keys
+     * used here to their Contentful fields in the API.
+     */
     let fieldData = {
       id: postData.id,
       type: postData.type,
@@ -205,6 +212,9 @@ function createContentfulAssets(environment) {
     }
   }
 
+  // createContentfulPosts(environment, assets)
+  // return false;
+
   // Create the assets FIRST so that we can attach them to posts later.
   for (let [index, wpPost] of wpData.posts.entries()) {
     setTimeout(function() {
@@ -267,43 +277,64 @@ function createContentfulPosts(environment, assets) {
    */
   let promises = []
 
-  for (const [index, [key, value]] of Object.entries(Object.entries(wpData.posts))) {
-    apiData[index].endpoint = key
+  for (const [index, post] of wpData.posts.entries()) {
+    let postFields = {}
 
-    let objectValue = value
+    for (let [postKey, postValue] of Object.entries(post)) {
+      console.log(`postKey: ${postKey}`)
+      // console.log(`postKey: ${postValue}`)
 
-    if (key === 'content') {
-      objectValue = formatRichTextPost(value)
-    }
+      if (postKey === 'content') {
+        postValue = formatRichTextPost(postValue)
+      }
 
-    if (key === 'featuredImage' && value > 0) {
-      let assetObj = assets.filter(asset => {
-        if (asset.fileName === wpPost.contentImages[0].link.split('/').pop()) {
-          return asset
-        }
-      })[0];
+      if (postKey === 'featuredImage' && postValue > 0) {
+        console.log('get image')
+        let assetObj = assets.filter(asset => {
+          if (asset.fileName === post.contentImages[0].link.split('/').pop()) {
+            return asset
+          }
+        })[0];
 
-      postFields.featuredImage = {
-        'en-GB': {
-          sys: {
-            type: 'Link',
-            linkType: 'Asset',
-            id: assetObj.assetId
+        postFields.featuredImage = {
+          'en-GB': {
+            sys: {
+              type: 'Link',
+              linkType: 'Asset',
+              id: assetObj.assetId
+            }
           }
         }
       }
-    }
 
-    postFields[key] = {
-      'en-GB': objectValue
-    }
+      postFields[postKey] = {
+        'en-GB': postValue
+      }
 
+      /**
+       * Remove values/flags/checks used for this script that
+       * Contentful doesn't need.
+       */
+
+      let keysToRemove = [
+        'id',
+        'type'
+      ]
+
+      console.log(`!postKey: ${postKey}`)
+
+      if (
+        postKey === 'featuredImage' && postValue === 0 ||
+        keysToRemove.includes(postKey)
+      ) {
+        delete postFields[postKey]
+      }
+    }
     promises.push(postFields)
   }
 
-
-  // console.log(promises)
-  createContentfulEntries(promises);
+  console.log(promises)
+  createContentfulEntries(environment, promises);
 
   /**
    * Dynamically build our Contentful data object
@@ -411,37 +442,54 @@ function createContentfulPosts(environment, assets) {
   // }
 }
 
-function createContentfulEntries(promises){
+function createContentfulEntries(environment, promises) {
   return Promise.all(promises.map((post, index) => new Promise(async resolve => {
-    let newPost
 
+    let newPost
+  
     setTimeout(() => {
       try {
-        newPost = await environment.createEntry('blogPost', {
-          fields: {
-            post
-          }
-        }) 
+        newPost = environment.createEntry('blogPost', {
+          fields: post
+        })
+        .then((entry) => entry.publish())
+        .then((entry) => {
+          console.log(entry)
+        })
       } catch (error) {
-        throw(Error(e))
+        throw(Error(error))
       }
-  
-      try {
-        await newPost.publish()
-      } catch(e) {
-        throw(Error(e))
-      }
-  
+
       resolve(newPost)
     }, 1000 + (3000 * index));
-  });
+
+  })));
 }
 
 // Ideally we'd be using Markdown here, but I like the RichText editor 🤡
 function formatRichTextPost(content) {
   // TODO: split  at paragraphs, create a node for each.
 
-  let contentArray = content.split('<p>');
+  let contentor = {
+    content: [
+      {
+        nodeType:"paragraph",
+        data: {},
+        content: [
+          {
+            value: "lorem hello world",
+            nodeType:"text",
+            marks: [],
+            data: {}
+          }
+        ],
+        data: {},
+        nodeType: 'document'
+      }
+    ]
+  };
+
+  // let contentArray = content.split('<p>');
 
   // fields: {
   //   '<field_name>': {
@@ -465,7 +513,7 @@ function formatRichTextPost(content) {
   //     }
   //   }
   // }
-  return content
+  return contentor
 }
 
 migrateContent();
