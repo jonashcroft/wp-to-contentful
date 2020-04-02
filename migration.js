@@ -9,7 +9,6 @@ const ctfData = {
   environment: '[ENVIRONMENT_ID]',
   spaceId: '[SPACE_ID]'
 }
-
 Object.freeze(ctfData);
 
 const ctfClient = contentful.createClient({
@@ -296,8 +295,7 @@ function createContentfulPosts(environment, assets) {
       let keysToSkip = [
         'id',
         'type',
-        'contentImages',
-        'content'
+        'contentImages'
       ]
 
       if (!keysToSkip.includes(postKey)) {
@@ -369,6 +367,53 @@ function createContentfulEntries(environment, promises) {
 function formatRichTextPost(content) {
   // TODO: split  at paragraphs, create a node for each.
 
+  /**
+   * https://www.contentful.com/developers/docs/concepts/rich-text/
+   */
+
+  /**
+   *     "expected": [
+          "blockquote",
+          "embedded-asset-block",
+          "embedded-entry-block",
+          "heading-1",
+          "heading-2",
+          "heading-3",
+          "heading-4",
+          "heading-5",
+          "heading-6",
+          "hr",
+          "ordered-list",
+          "paragraph",
+          "unordered-list"
+        ]
+   */
+
+    // environment.createEntry('<content_type>', {
+    //   fields: {
+    //     '<field_name>': {
+    //       '<language>': {
+    //         content: [
+    //           {
+    //             nodeType:"paragraph",
+    //             data: {},
+    //             content: [
+    //               {
+    //                 value: "lorem ...",
+    //                 nodeType:"text",
+    //                 marks: [],
+    //                 data: {}
+    //               }
+    //             ]
+    //           }
+    //         ],
+    //       data: {},
+    //       nodeType: 'document'
+    //       }
+    //     }
+    //   }
+    // })
+
   let contentor = {
     content: [
       {
@@ -381,11 +426,23 @@ function formatRichTextPost(content) {
             marks: [],
             data: {}
           }
-        ],
+        ]
+      },
+      {
+        nodeType:"paragraph",
         data: {},
-        nodeType: 'document'
-      }
-    ]
+        content: [
+          {
+            value: "lorem hello world two",
+            nodeType:"text",
+            marks: [],
+            data: {}
+          }
+        ]
+      },
+    ],
+    data: {},
+    nodeType: 'document'
   };
 
   // let contentArray = content.split('<p>');

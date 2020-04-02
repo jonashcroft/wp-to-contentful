@@ -1,4 +1,5 @@
 .DS_Store
 node_modules
+wpPosts.json
 posts.json
 contentful-config.js
