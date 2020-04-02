@@ -5,10 +5,11 @@ const fs = require('fs');
 const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
 
 const ctfData = {
-  accessToken: 'CFPAT-GoOEMcXAMoM0e_yqFcIoV6-s8LjADlZT4qyHIlp8W1A',
-  environment: 'master',
-  spaceId: 'yny9a84qp5hk'
+  accessToken: '[ACCESS_TOKEN]',
+  environment: '[ENVIRONMENT_ID]',
+  spaceId: '[SPACE_ID]'
 }
+
 Object.freeze(ctfData);
 
 const ctfClient = contentful.createClient({
@@ -255,7 +256,7 @@ function createContentfulAssets(environment) {
           }
         })
       }
-    }, 1000 + (3000 * index));
+    }, 1000 + (5000 * index));
   }
 }
 
@@ -288,6 +289,23 @@ function createContentfulPosts(environment, assets) {
         postValue = formatRichTextPost(postValue)
       }
 
+      /**
+       * Remove values/flags/checks used for this script that
+       * Contentful doesn't need.
+       */
+      let keysToSkip = [
+        'id',
+        'type',
+        'contentImages',
+        'content'
+      ]
+
+      if (!keysToSkip.includes(postKey)) {
+        postFields[postKey] = {
+          'en-GB': postValue
+        }
+      }
+
       if (postKey === 'featuredImage' && postValue > 0) {
         console.log('get image')
         let assetObj = assets.filter(asset => {
@@ -307,27 +325,8 @@ function createContentfulPosts(environment, assets) {
         }
       }
 
-      postFields[postKey] = {
-        'en-GB': postValue
-      }
-
-      /**
-       * Remove values/flags/checks used for this script that
-       * Contentful doesn't need.
-       */
-
-      let keysToRemove = [
-        'id',
-        'type'
-      ]
-
-      console.log(`!postKey: ${postKey}`)
-
-      if (
-        postKey === 'featuredImage' && postValue === 0 ||
-        keysToRemove.includes(postKey)
-      ) {
-        delete postFields[postKey]
+      if (postKey === 'featuredImage' && postValue === 0) {
+        delete postFields.featuredImage
       }
     }
     promises.push(postFields)
@@ -336,116 +335,16 @@ function createContentfulPosts(environment, assets) {
   console.log(promises)
   createContentfulEntries(environment, promises);
 
-  /**
-   * Dynamically build our Contentful data object
-   * using the keys we built whilst reducing the WP Post data.alias
-   * 
-   * Results:
-   *  postTitle: {
-   *    'en-GB': wpPost.postTitle
-   *   },
-   *  slug: {
-   *    'en-GB': wpPost.slug
-   *  },
-   */
-  // for (const [index, [key, value]] of Object.entries(Object.entries(wpData.posts))) {
-  //   apiData[index].endpoint = key
-
-  //   let objectValue = value
-
-  //   if (key === 'content') {
-  //     objectValue = formatRichTextPost(value)
-  //   }
-
-  //   if (key === 'featuredImage' && value > 0) {
-  //     let assetObj = assets.filter(asset => {
-  //       if (asset.fileName === wpPost.contentImages[0].link.split('/').pop()) {
-  //         return asset
-  //       }
-  //     })[0];
-
-  //     postFields.featuredImage = {
-  //       'en-GB': {
-  //         sys: {
-  //           type: 'Link',
-  //           linkType: 'Asset',
-  //           id: assetObj.assetId
-  //         }
-  //       }
-  //     }
-  //   }
-
-  //   postFields[key] = {
-  //     'en-GB': objectValue
-  //   }
-
-    // setTimeout(function() {
-    //   environment.createEntry('blogPost', {
-    //     fields: postFields
-    //   })
-    //   .then((entry) => entry.publish())
-    //   .then((entry) => {
-    //     console.log(entry)
-    //   })
-    // }, 1000 + (3000 * index));
-  // }
-
-
-  // for (const [index, wpPost] of wpData.posts.entries()) {
-  //   let postFields = {
-  //     postTitle: {
-  //       'en-GB': wpPost.postTitle
-  //     },
-  //     slug: {
-  //       'en-GB': wpPost.slug
-  //     },
-  //     publishDate: {
-  //       'en-GB': wpPost.publishDate
-  //     },
-  //     content: {
-  //       'en-GB': formatRichTextPost(wpPost.content)
-  //     },
-  //     categories: {
-  //       'en-GB': wpPost.categories
-  //     },
-  //     tags: {
-  //       'en-GB': wpPost.tags
-  //     }
-  //   } 
-
-  //   if (wpPost.featuredImage > 0) {
-  //     let assetObj = assets.filter(asset => {
-  //       if (asset.fileName === wpPost.contentImages[0].link.split('/').pop()) {
-  //         return asset
-  //       }
-  //     })[0];
-
-  //     postFields.featuredImage = {
-  //       'en-GB': {
-  //         sys: {
-  //           type: 'Link',
-  //           linkType: 'Asset',
-  //           id: assetObj.assetId
-  //         }
-  //       }
-  //     }
-  //   }
-  //   setTimeout(function() {
-  //     environment.createEntry('blogPost', {
-  //       fields: postFields
-  //     })
-  //     .then((entry) => entry.publish())
-  //     .then((entry) => {
-  //       console.log(entry)
-  //     })
-  //   }, 1000 + (3000 * index));
-  // }
+  console.log(`where are we at`);
 }
 
 function createContentfulEntries(environment, promises) {
   return Promise.all(promises.map((post, index) => new Promise(async resolve => {
 
     let newPost
+
+    console.log(`---`)
+    console.log(post)
   
     setTimeout(() => {
       try {
@@ -461,7 +360,7 @@ function createContentfulEntries(environment, promises) {
       }
 
       resolve(newPost)
-    }, 1000 + (3000 * index));
+    }, 1000 + (5000 * index));
 
   })));
 }
@@ -479,7 +378,7 @@ function formatRichTextPost(content) {
           {
             value: "lorem hello world",
             nodeType:"text",
-            marks: [],
+            marks: [],3
             data: {}
           }
         ],
