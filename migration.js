@@ -378,7 +378,7 @@ function formatRichTextPost(content) {
           {
             value: "lorem hello world",
             nodeType:"text",
-            marks: [],3
+            marks: [],
             data: {}
           }
         ],
