@@ -15,6 +15,8 @@ const ctfClient = contentful.createClient({
   accessToken: ctfData.accessToken
 })
 
+const logSeparator = `-------`
+
 
 // API Endpoints we want to get data from
 let wpData = {
@@ -28,6 +30,10 @@ let apiData = {}
 
 function migrateContent() {
   let promises = [];
+
+  console.log(logSeparator)
+  console.log(`Getting WordPress API data`)
+  console.log(logSeparator)
 
   // Loop over our content types and create API endpoint URLs
   for (const [key, value] of Object.entries(wpData)) {
@@ -75,7 +81,7 @@ function mapData() {
     apiData[index].endpoint = key
   }
 
-  console.log(`Reducing posts API data to only include fields we want`)
+  console.log(`Reducing API data to only include fields we want`)
   let apiPosts = getApiDataType('posts')[0];
   // Loop over posts - note: we probably /should/ be using .map() here.
   for (let [key, postData] of Object.entries(apiPosts.data)) {
@@ -107,6 +113,7 @@ function mapData() {
   console.log(`...Done!`)
   
   writeDataToFile(wpData, 'wpPosts');
+  console.log(logSeparator)
   createForContentful();
 }
 
@@ -186,6 +193,7 @@ function writeDataToFile(dataTree, dataType) {
       return;
     };
     console.log(`...Done!`)
+    console.log(logSeparator)
   });
 }
 
@@ -193,7 +201,7 @@ function createForContentful() {
   ctfClient.getSpace(ctfData.spaceId)
   .then((space) => space.getEnvironment(ctfData.environment))
   .then((environment) => {
-    createContentfulAssets(environment);
+    buildContentfulAssets(environment);
   })
   .catch((error) => {
     console.log(error)
@@ -201,66 +209,80 @@ function createForContentful() {
   })
 }
 
-function createContentfulAssets(environment) {
-  let assets = []
-  let queueLength = 0
-  let queuePosition = 0
+function buildContentfulAssets(environment) {
+  let assetPromises = []
 
+  console.log('Building Contentful Asset Objects')
+
+  // For every image in every post, create a new asset.
   for (let [index, wpPost] of wpData.posts.entries()) {
     for (const [imgIndex, contentImage] of wpPost.contentImages.entries()) {
-      queueLength++
+      let assetObj = {
+        title: {
+          'en-GB': contentImage.title
+        },
+        description: {
+          'en-GB': contentImage.description
+        },
+        file: {
+          'en-GB': {
+            contentType: 'image/jpeg',
+            fileName: contentImage.link.split('/').pop(),
+            upload: encodeURI(contentImage.link)
+          }
+        }
+      }
+
+      assetPromises.push(assetObj);
     }
   }
 
-  // createContentfulPosts(environment, assets)
-  // return false;
+  let assets = []
 
-  // Create the assets FIRST so that we can attach them to posts later.
-  for (let [index, wpPost] of wpData.posts.entries()) {
-    setTimeout(function() {
-      for (const [imgIndex, contentImage] of wpPost.contentImages.entries()) {
-        // Rate limiting will occur, there is ABSOLUTLY a better way to do this.
-        environment.createAsset({
-          fields: {
-            title: {
-              'en-GB': contentImage.title
-            },
-            description: {
-              'en-GB': contentImage.description
-            },
-            file: {
-              'en-GB': {
-                contentType: 'image/jpeg',
-                fileName: contentImage.link.split('/').pop(),
-                upload: encodeURI(contentImage.link)
-              }
-            }
-          }
-        })
-        .then((asset) => asset.processForAllLocales())
-        .then((asset) => asset.publish())
-        .then((asset) => {
-          assets.push({
-            assetId: asset.sys.id,
-            fileName: asset.fields.file['en-GB'].fileName
+  console.log(`Creating Contentful Assets...`)
+  createContentfulAssets(environment, assetPromises, assets)
+    .then((result) => {
+      console.log(`...Done!`)
+      console.log(logSeparator)
+      createContentfulPosts(environment, assets)
+    })
+}
+
+// Create a Promise to publish all assets.
+// Note that, Timeout might not be needed here, but Contentful
+// rate limits were being hit.
+function createContentfulAssets(environment, promises, assets) {
+  return Promise.all(
+    promises.map((asset, index) => new Promise(async resolve => {
+
+      let newAsset
+      // console.log(`Creating: ${post.slug['en-GB']}`)
+      setTimeout(() => {
+        try {
+          newAsset = environment.createAsset({
+            fields: asset
           })
+          .then((asset) => asset.processForAllLocales())
+          .then((asset) => asset.publish())
+          .then((asset) => {
+            console.log(`Published Asset: ${asset.fields.file['en-GB'].fileName}`);
+            assets.push({
+              assetId: asset.sys.id,
+              fileName: asset.fields.file['en-GB'].fileName
+            })
+          })
+        } catch (error) {
+          throw(Error(error))
+        }
 
-          console.log(`${queuePosition} vs ${queueLength}`)
-
-          queuePosition++
-          if (queuePosition === queueLength) {
-            assetsPublished = true
-            console.log('FINISHED')
-            createContentfulPosts(environment, assets)
-          }
-        })
-      }
-    }, 1000 + (5000 * index));
-  }
+        resolve(newAsset)
+      }, 1000 + (5000 * index));
+    }))
+  );
 }
 
 function createContentfulPosts(environment, assets) {
-  console.log(`begin to publish posts...`)
+  console.log(`Creating Contentful Posts...`)
 
   // let postFields = {}
   /**
@@ -281,9 +303,7 @@ function createContentfulPosts(environment, assets) {
     let postFields = {}
 
     for (let [postKey, postValue] of Object.entries(post)) {
-      console.log(`postKey: ${postKey}`)
       // console.log(`postKey: ${postValue}`)
-
       if (postKey === 'content') {
         postValue = formatRichTextPost(postValue)
       }
@@ -305,7 +325,6 @@ function createContentfulPosts(environment, assets) {
       }
 
       if (postKey === 'featuredImage' && postValue > 0) {
-        console.log('get image')
         let assetObj = assets.filter(asset => {
           if (asset.fileName === post.contentImages[0].link.split('/').pop()) {
             return asset
@@ -323,6 +342,7 @@ function createContentfulPosts(environment, assets) {
         }
       }
 
+      // No image and Contentful will fail if value is '0', so remove.
       if (postKey === 'featuredImage' && postValue === 0) {
         delete postFields.featuredImage
       }
@@ -330,10 +350,12 @@ function createContentfulPosts(environment, assets) {
     promises.push(postFields)
   }
 
-  console.log(promises)
-  createContentfulEntries(environment, promises);
-
-  console.log(`where are we at`);
+  console.log(`Post objects created, attempting to create entries...`)
+  createContentfulEntries(environment, promises)
+    .then((result) => {
+      console.log(logSeparator)
+      console.log(`Done!`);
+    });
 }
 
 function createContentfulEntries(environment, promises) {
@@ -341,8 +363,7 @@ function createContentfulEntries(environment, promises) {
 
     let newPost
 
-    console.log(`---`)
-    console.log(post)
+    console.log(`Creating: ${post.slug['en-GB']}`)
   
     setTimeout(() => {
       try {
@@ -351,7 +372,7 @@ function createContentfulEntries(environment, promises) {
         })
         .then((entry) => entry.publish())
         .then((entry) => {
-          console.log(entry)
+          console.log(`Success: ${entry.fields.slug['en-GB']}`)
         })
       } catch (error) {
         throw(Error(error))
@@ -359,7 +380,6 @@ function createContentfulEntries(environment, promises) {
 
       resolve(newPost)
     }, 1000 + (5000 * index));
-
   })));
 }
 
@@ -389,31 +409,6 @@ function formatRichTextPost(content) {
         ]
    */
 
-    // environment.createEntry('<content_type>', {
-    //   fields: {
-    //     '<field_name>': {
-    //       '<language>': {
-    //         content: [
-    //           {
-    //             nodeType:"paragraph",
-    //             data: {},
-    //             content: [
-    //               {
-    //                 value: "lorem ...",
-    //                 nodeType:"text",
-    //                 marks: [],
-    //                 data: {}
-    //               }
-    //             ]
-    //           }
-    //         ],
-    //       data: {},
-    //       nodeType: 'document'
-    //       }
-    //     }
-    //   }
-    // })
-
   let contentor = {
     content: [
       {
@@ -421,54 +416,30 @@ function formatRichTextPost(content) {
         data: {},
         content: [
           {
-            value: "lorem hello world",
+            value: content,
             nodeType:"text",
             marks: [],
             data: {}
           }
         ]
       },
-      {
-        nodeType:"paragraph",
-        data: {},
-        content: [
-          {
-            value: "lorem hello world two",
-            nodeType:"text",
-            marks: [],
-            data: {}
-          }
-        ]
-      },
+      // {
+      //   nodeType:"paragraph",
+      //   data: {},
+      //   content: [
+      //     {
+      //       value: "lorem hello world two",
+      //       nodeType:"text",
+      //       marks: [],
+      //       data: {}
+      //     }
+      //   ]
+      // },
     ],
     data: {},
     nodeType: 'document'
   };
 
-  // let contentArray = content.split('<p>');
-
-  // fields: {
-  //   '<field_name>': {
-  //     '<language>': {
-  //       content: [
-  //         {
-  //           nodeType:"paragraph",
-  //           data: {},
-  //           content: [
-  //             {
-  //               value: "lorem ...",
-  //               nodeType:"text",
-  //               marks: [],
-  //               data: {}
-  //             }
-  //           ]
-  //         }
-  //       ],
-  //       data: {},
-  //       nodeType: 'document'
-  //     }
-  //   }
-  // }
   return contentor
 }
 
