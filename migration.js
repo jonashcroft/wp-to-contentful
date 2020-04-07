@@ -1,6 +1,31 @@
 const contentful = require('contentful-management')
 const axios = require('axios')
 const fs = require('fs');
+const TurndownService = require('turndown')
+
+const turndownService = new TurndownService({
+  codeBlockStyle: 'fenced'
+})
+turndownService.addRule('fencedCodeBlock', {
+  filter: function (node, options) {
+    return (
+      options.codeBlockStyle === 'fenced' &&
+      node.nodeName === 'PRE' &&
+      node.firstChild &&
+      node.firstChild.nodeName === 'CODE'
+    )
+  },
+  replacement: function (content, node, options) {
+    var className = node.firstChild.getAttribute('class') || ''
+    var language = (className.match(/language-(\S+)/) || [null, ''])[1]
+
+    return (
+      '\n\n' + options.fence + language + '\n' +
+      node.firstChild.textContent +
+      '\n' + options.fence + '\n\n'
+    )
+  }
+})
 
 const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
 
@@ -113,8 +138,18 @@ function mapData() {
   console.log(`...Done!`)
   
   writeDataToFile(wpData, 'wpPosts');
+
+
+  for (let [index, wpPost] of wpData.posts.entries()) {
+    let formattedPost = formatRichTextPost(wpPost.content)
+
+    console.log(formattedPost)
+  }
+
+  return
+
   console.log(logSeparator)
-  createForContentful();
+  createForContentful();  
 }
 
 function getPostBodyImages(postData) {
@@ -386,6 +421,17 @@ function createContentfulEntries(environment, promises) {
 // Ideally we'd be using Markdown here, but I like the RichText editor 🤡
 function formatRichTextPost(content) {
   // TODO: split  at paragraphs, create a node for each.
+  console.log(logSeparator)
+
+  let testParagraph = content
+
+  console.log(testParagraph)
+  // turndownService.remove('code')
+  let markdown = turndownService.turndown(content)
+
+  console.log(logSeparator)
+  console.log(markdown)
+
 
   /**
    * https://www.contentful.com/developers/docs/concepts/rich-text/
