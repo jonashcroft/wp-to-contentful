@@ -16,8 +16,8 @@ turndownService.addRule('fencedCodeBlock', {
     )
   },
   replacement: function (content, node, options) {
-    var className = node.firstChild.getAttribute('class') || ''
-    var language = (className.match(/language-(\S+)/) || [null, ''])[1]
+    let className = node.firstChild.getAttribute('class') || ''
+    let language = (className.match(/language-(\S+)/) || [null, ''])[1]
 
     return (
       '\n\n' + options.fence + language + '\n' +
@@ -26,15 +26,29 @@ turndownService.addRule('fencedCodeBlock', {
     )
   }
 })
+turndownService.addRule('replaceWordPressImages', {
+  filter: ['img'],
+  replacement: function(content, node, options) {
+    let assetUrl = contentfulData.assets.filter(asset => {
+      let assertFileName = asset.split('/').pop()
+      let nodeFileName = node.getAttribute('src').split('/').pop()
+
+      if (assertFileName === nodeFileName) {
+        return asset
+      }
+    })[0];
+
+    return `![${node.getAttribute('alt')}](${assetUrl})`
+  }
+})
 
 const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
 
 const ctfData = {
-  accessToken: 'CFPAT-GoOEMcXAMoM0e_yqFcIoV6-s8LjADlZT4qyHIlp8W1A',
-  environment: 'master',
-  spaceId: 'yny9a84qp5hk'
+  accessToken: '[ACCESS_TOKEN]',
+  environment: '[ENVIRONMENT_ID]',
+  spaceId: '[SPACE_ID]'
 }
-
 Object.freeze(ctfData);
 
 const ctfClient = contentful.createClient({
@@ -53,6 +67,8 @@ let wpData = {
 };
 
 let apiData = {}
+
+let contentfulData = []
 
 function migrateContent() {
   let promises = [];
@@ -137,19 +153,20 @@ function mapData() {
   }
 
   console.log(`...Done!`)
-  
+  console.log(logSeparator)
+
   writeDataToFile(wpData, 'wpPosts');
 
 
-  for (let [index, wpPost] of wpData.posts.entries()) {
-    let formattedPost = formatRichTextPost(wpPost.content)
+  // for (let [index, wpPost] of wpData.posts.entries()) {
+  //   let formattedPost = formatRichTextPost(wpPost.content)
 
-    console.log(formattedPost)
-  }
+  //   console.log(formattedPost)
+  // }
 
-  return
+  // return
 
-  console.log(logSeparator)
+  // console.log(logSeparator)
   createForContentful();  
 }
 
@@ -276,12 +293,44 @@ function buildContentfulAssets(environment) {
   let assets = []
 
   console.log(`Creating Contentful Assets...`)
+  console.log(logSeparator)
+
+  // getAndStoreAssets()
+  // return
+
   createContentfulAssets(environment, assetPromises, assets)
     .then((result) => {
       console.log(`...Done!`)
       console.log(logSeparator)
-      createContentfulPosts(environment, assets)
+
+      getAndStoreAssets(environment, assets)
     })
+}
+
+function getAndStoreAssets(environment, assets) {
+  console.log(`Storing asset URLs in a global array to use later`)
+    // Not supported with JS? Easier to get all assets and support
+    axios.get(`https://api.contentful.com/spaces/${ctfData.spaceId}/environments/${ctfData.environment}/public/assets`,
+    {
+      headers: {
+        'Authorization':`Bearer ${ctfData.accessToken}`
+      }
+    })
+    .then((result) => {
+      // console.log(result)
+      contentfulData.assets = []
+      for (const item of result.data.items) {
+        contentfulData.assets.push(item.fields.file['en-GB'].url)
+      }
+
+      createContentfulPosts(environment, assets)
+
+    }).catch((err) => {
+      console.log(err)
+      return error
+    });
+    console.log(`...Done!`)
+    console.log(logSeparator)
 }
 
 // Create a Promise to publish all assets.
@@ -319,6 +368,7 @@ function createContentfulAssets(environment, promises, assets) {
 
 function createContentfulPosts(environment, assets) {
   console.log(`Creating Contentful Posts...`)
+  console.log(logSeparator)
 
   // let postFields = {}
   /**
@@ -341,7 +391,7 @@ function createContentfulPosts(environment, assets) {
     for (let [postKey, postValue] of Object.entries(post)) {
       // console.log(`postKey: ${postValue}`)
       if (postKey === 'content') {
-        postValue = formatRichTextPost(postValue)
+        postValue = turndownService.turndown(postValue)
       }
 
       /**
@@ -389,8 +439,11 @@ function createContentfulPosts(environment, assets) {
   console.log(`Post objects created, attempting to create entries...`)
   createContentfulEntries(environment, promises)
     .then((result) => {
-      console.log(logSeparator)
+      console.log(logSeparator);
       console.log(`Done!`);
+      console.log(logSeparator);
+      console.log(`The migration has completed.`)
+      console.log(logSeparator);
     });
 }
 
@@ -399,7 +452,7 @@ function createContentfulEntries(environment, promises) {
 
     let newPost
 
-    console.log(`Creating: ${post.slug['en-GB']}`)
+    console.log(`Attempting: ${post.slug['en-GB']}`)
   
     setTimeout(() => {
       try {
@@ -427,8 +480,16 @@ function formatRichTextPost(content) {
   // turndownService.remove('code')
   let markdown = turndownService.turndown(content)
 
-  console.log(logSeparator)
-  console.log(markdown)
+  // console.log(logSeparator)
+  // console.log(markdown)
+
+  // let imageLinks = /!\[[^\]]*\]\((.*?)\s*("(?:.*[^"])")?\s*\)/g
+  // let imageRegex = /<img\s[^>]*?src\s*=\s*['\"]([^'\"]*?)['\"][^>]*?>/g
+
+  // while (foundImage = imageLinks.exec(markdown)) {
+    // console.log(foundImage[0])
+    // let alt = foundImage[0].split('alt="')[1].split('"')[0]
+  // }
 
 
   /**
@@ -453,38 +514,38 @@ function formatRichTextPost(content) {
         ]
    */
 
-  let contentor = {
-    content: [
-      {
-        nodeType:"paragraph",
-        data: {},
-        content: [
-          {
-            value: content,
-            nodeType:"text",
-            marks: [],
-            data: {}
-          }
-        ]
-      },
-      // {
-      //   nodeType:"paragraph",
-      //   data: {},
-      //   content: [
-      //     {
-      //       value: "lorem hello world two",
-      //       nodeType:"text",
-      //       marks: [],
-      //       data: {}
-      //     }
-      //   ]
-      // },
-    ],
-    data: {},
-    nodeType: 'document'
-  };
+  // let contentor = {
+  //   content: [
+  //     {
+  //       nodeType:"paragraph",
+  //       data: {},
+  //       content: [
+  //         {
+  //           value: content,
+  //           nodeType:"text",
+  //           marks: [],
+  //           data: {}
+  //         }
+  //       ]
+  //     },
+  //     // {
+  //     //   nodeType:"paragraph",
+  //     //   data: {},
+  //     //   content: [
+  //     //     {
+  //     //       value: "lorem hello world two",
+  //     //       nodeType:"text",
+  //     //       marks: [],
+  //     //       data: {}
+  //     //     }
+  //     //   ]
+  //     // },
+  //   ],
+  //   data: {},
+  //   nodeType: 'document'
+  // };
 
-  return contentor
+  return markdown
 }
 
 migrateContent();
