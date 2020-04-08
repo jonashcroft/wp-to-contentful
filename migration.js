@@ -30,10 +30,11 @@ turndownService.addRule('fencedCodeBlock', {
 const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
 
 const ctfData = {
-  accessToken: '[ACCESS_TOKEN]',
-  environment: '[ENVIRONMENT_ID]',
-  spaceId: '[SPACE_ID]'
+  accessToken: 'CFPAT-GoOEMcXAMoM0e_yqFcIoV6-s8LjADlZT4qyHIlp8W1A',
+  environment: 'master',
+  spaceId: 'yny9a84qp5hk'
 }
+
 Object.freeze(ctfData);
 
 const ctfClient = contentful.createClient({
@@ -423,9 +424,6 @@ function formatRichTextPost(content) {
   // TODO: split  at paragraphs, create a node for each.
   console.log(logSeparator)
 
-  let testParagraph = content
-
-  console.log(testParagraph)
   // turndownService.remove('code')
   let markdown = turndownService.turndown(content)
 
