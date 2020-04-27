@@ -42,8 +42,14 @@ turndownService.addRule('replaceWordPressImages', {
   }
 })
 
-const wpEndpoint = `https://jonashcroft.co.uk/wp-json/wp/v2/`
+/**
+ * Global variables that we're gonna use throughout this script
+ */
 
+// Main WordPress endpoint
+const wpEndpoint = `https://mywebsite.com/wp-json/wp/v2/`
+
+// Contentful API requirements
 const ctfData = {
   accessToken: '[ACCESS_TOKEN]',
   environment: '[ENVIRONMENT_ID]',
@@ -51,10 +57,12 @@ const ctfData = {
 }
 Object.freeze(ctfData);
 
+// Creation of Contentful Client
 const ctfClient = contentful.createClient({
   accessToken: ctfData.accessToken
 })
 
+// Internal: log output separator for terminal.
 const logSeparator = `-------`
 
 
@@ -66,8 +74,10 @@ let wpData = {
   'media': []
 };
 
+// Object to store WordPress API data in
 let apiData = {}
 
+// Object to store Contentful Data in.
 let contentfulData = []
 
 function migrateContent() {
@@ -210,7 +220,6 @@ function getPostBodyImages(postData) {
 }
 
 function getPostLabels(postItems, labelType) {
-  // console.log(`- Getting post ${labelType}`)
   let labels = []
   let apiTag = getApiDataType(labelType)[0];
 
@@ -296,7 +305,6 @@ function buildContentfulAssets(environment) {
   console.log(logSeparator)
 
   // getAndStoreAssets()
-  // return
 
   createContentfulAssets(environment, assetPromises, assets)
     .then((result) => {
