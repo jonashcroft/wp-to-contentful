@@ -29,9 +29,9 @@ npm install turndown // used to convert WordPress post HTML into Markdown.
 
 Open up `migration.js`, you'll need to make some modifcations:
 
-1. 
 Replace the `wpEndpoint` variable with your own websites WP-JSON endpoint.
-2. In your Contentful admin panel, generate Content Management API keys, and insert your credentials in the `ctfData` object, as below:
+
+In your Contentful admin panel, generate Content Management API keys, and insert your credentials in the `ctfData` object, as below:
 ```javascript
 // Contentful API requirements
 const ctfData = {
@@ -41,7 +41,9 @@ const ctfData = {
 }
 Object.freeze(ctfData);
 ```
-5. Locate the `fieldData` object in the  `mapData()` function, and replace the keys with your Contentful Content Model IDs and values with your WordPress fields. (detailed in the blog post)
+
+Locate the `fieldData` object in the  `mapData()` function, and replace the keys with your Contentful Content Model IDs and values with your WordPress fields. (detailed in the blog post)
+
 ```javascript
  let fieldData = {
     id: postData.id,
@@ -56,7 +58,7 @@ Object.freeze(ctfData);
     contentImages: getPostBodyImages(postData)
  }
 ```
-6. To run the script:
+### Run the script
 
 ```bash
 node migration.js
