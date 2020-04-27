@@ -1,6 +1,11 @@
-# A Node script to automatically migrate posts from WordPress to Contentful.
+# A script to automatically migrate posts from WordPress to Contentful.
 
+This is a script that will use export all posts from WordPress using the Rest API, and import them into Contentful using the Content Management API.
 
+I've used this script for my own personal site, and decided to share it and document my process used to develop it so people can learn from it. The basis of the script is intended to be expanded on for your own specifc purpose, but you can use the script as-is by modifying a few things.
+
+Full write-up can be found here:
+https://ashcroft.dev/blog/script-migrate-wordpress-posts-contentful/
 
 ## How to use the script
 
@@ -57,4 +62,4 @@ Object.freeze(ctfData);
 node migration.js
 ```
 
-*IMPORTANT*: There is no sandbox or test environment with this script. If you run this script, it will immediately attempt to publish your new posts and assets - I am not responsible for anything that goes wrong.
+**IMPORTANT**: There is no sandbox or test environment with this script. If you run this script, it will immediately attempt to publish your new posts and assets - I am not responsible for anything that goes wrong.
