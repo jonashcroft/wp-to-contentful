@@ -3,9 +3,69 @@ const axios = require('axios')
 const fs = require('fs');
 const TurndownService = require('turndown')
 
+/**
+ * Global variables that we're gonna use throughout this script
+ *
+ */
+
+/**
+ * Main WordPress endpoint.
+ */
+const wpEndpoint = `https://mywebsite.com/wp-json/wp/v2/`
+
+/**
+ * API Endpoints that we'd like to receive data from
+ * (e.g. /wp-json/wp/v2/${key})
+ */
+let wpData = {
+  'posts': [],
+  'tags': [],
+  'categories': [],
+  'media': []
+};
+
+/**
+ * Contentful API requirements
+ */
+const ctfData = {
+  accessToken: '[ACCESS_TOKEN]',
+  environment: '[ENVIRONMENT_ID]',
+  spaceId: '[SPACE_ID]'
+}
+Object.freeze(ctfData);
+
+/**
+ * Creation of Contentful Client
+ */
+const ctfClient = contentful.createClient({
+  accessToken: ctfData.accessToken
+})
+
+/**
+ * Internal: log output separator for terminal.
+ */
+const logSeparator = `-------`
+
+/**
+ * Object to store WordPress API data in
+ */
+let apiData = {}
+
+/**
+ * Object to store Contentful Data in.
+ */
+let contentfulData = []
+
+/**
+ * Markdown / Content conversion functions.
+ */
 const turndownService = new TurndownService({
   codeBlockStyle: 'fenced'
 })
+
+/**
+ * Convert HTML codeblocks to Markdown codeblocks.
+ */
 turndownService.addRule('fencedCodeBlock', {
   filter: function (node, options) {
     return (
@@ -26,6 +86,10 @@ turndownService.addRule('fencedCodeBlock', {
     )
   }
 })
+
+/**
+ * Convert inline HTML images to inline markdown image format.
+ */
 turndownService.addRule('replaceWordPressImages', {
   filter: ['img'],
   replacement: function(content, node, options) {
@@ -43,43 +107,8 @@ turndownService.addRule('replaceWordPressImages', {
 })
 
 /**
- * Global variables that we're gonna use throughout this script
+ * Main Migration Script.
  */
-
-// Main WordPress endpoint
-const wpEndpoint = `https://mywebsite.com/wp-json/wp/v2/`
-
-// Contentful API requirements
-const ctfData = {
-  accessToken: '[ACCESS_TOKEN]',
-  environment: '[ENVIRONMENT_ID]',
-  spaceId: '[SPACE_ID]'
-}
-Object.freeze(ctfData);
-
-// Creation of Contentful Client
-const ctfClient = contentful.createClient({
-  accessToken: ctfData.accessToken
-})
-
-// Internal: log output separator for terminal.
-const logSeparator = `-------`
-
-
-// API Endpoints we want to get data from
-let wpData = {
-  'posts': [],
-  'tags': [],
-  'categories': [],
-  'media': []
-};
-
-// Object to store WordPress API data in
-let apiData = {}
-
-// Object to store Contentful Data in.
-let contentfulData = []
-
 function migrateContent() {
   let promises = [];
 
@@ -124,7 +153,9 @@ function fetchData(URL) {
     });
 }
 
-// Get our entire API response and filter it down to only show content that we want to include
+/**
+ * Get our entire API response and filter it down to only show content that we want to include
+ */
 function mapData() {
   // Get WP posts from API object
 
@@ -141,7 +172,7 @@ function mapData() {
     /**
      * Create base object with only limited keys
      * (e.g. just 'slug', 'categories', 'title') etc.
-     * 
+     *
      * The idea here is that the key will be your Contentful field name
      * and the value be the WP post value. We will later match the keys
      * used here to their Contentful fields in the API.
@@ -177,7 +208,7 @@ function mapData() {
   // return
 
   // console.log(logSeparator)
-  createForContentful();  
+  createForContentful();
 }
 
 function getPostBodyImages(postData) {
@@ -204,7 +235,6 @@ function getPostBodyImages(postData) {
     })
   }
 
-  // console.log(imageRegex.exec(postData.content.rendered))
   while (foundImage = imageRegex.exec(postData.content.rendered)) {
     let alt = foundImage[0].split('alt="')[1].split('"')[0]
 
@@ -236,7 +266,10 @@ function getPostLabels(postItems, labelType) {
   return labels
 }
 
-// Helper function to get a specific data tree for a type of resource.
+/**
+ * Helper function to get a specific data tree for a type of resource.
+ * @param {String} resourceName - specific type of WP endpoint (e.g. posts, media)
+ */
 function getApiDataType(resourceName) {
   let apiType = apiData.filter(obj => {
     if (obj.endpoint === resourceName) {
@@ -246,6 +279,11 @@ function getApiDataType(resourceName) {
   return apiType
 }
 
+/**
+ * Write all exported WP data to its own JSON file.
+ * @param {Object} dataTree - JSON body of WordPress data
+ * @param {*} dataType - type of WordPress API endpoint.
+ */
 function writeDataToFile(dataTree, dataType) {
   console.log(`Writing data to a file`)
 
@@ -259,6 +297,9 @@ function writeDataToFile(dataTree, dataType) {
   });
 }
 
+/**
+ * Create Contentful Client.
+ */
 function createForContentful() {
   ctfClient.getSpace(ctfData.spaceId)
   .then((space) => space.getEnvironment(ctfData.environment))
@@ -271,6 +312,10 @@ function createForContentful() {
   })
 }
 
+/**
+ * Build data trees for Contentful assets.
+ * @param {String} environment - name of Contentful environment.
+ */
 function buildContentfulAssets(environment) {
   let assetPromises = []
 
@@ -315,6 +360,11 @@ function buildContentfulAssets(environment) {
     })
 }
 
+/**
+ * Fetch all published assets from Contentful and store in a variable.
+ * @param {String} environment - name of Contentful Environment.
+ * @param {Array} assets - Array to store assets in.
+ */
 function getAndStoreAssets(environment, assets) {
   console.log(`Storing asset URLs in a global array to use later`)
     // Not supported with JS? Easier to get all assets and support
@@ -341,9 +391,14 @@ function getAndStoreAssets(environment, assets) {
     console.log(logSeparator)
 }
 
-// Create a Promise to publish all assets.
-// Note that, Timeout might not be needed here, but Contentful
-// rate limits were being hit.
+/**
+ * Create a Promise to publish all assets.
+ * Note that, Timeout might not be needed here, but Contentful
+ * rate limits were being hit.
+ * @param {String} environment - Contentful Environment
+ * @param {Array} promises - Contentful Asset data trees
+ * @param {Array} assets - array to store Assets in
+ */
 function createContentfulAssets(environment, promises, assets) {
   return Promise.all(
     promises.map((asset, index) => new Promise(async resolve => {
@@ -374,6 +429,11 @@ function createContentfulAssets(environment, promises, assets) {
   );
 }
 
+/**
+ * For each WordPress post, build the data for a Contentful counterpart.
+ * @param {String} environment - Name of Contentful Environment.
+ * @param {Array} assets - array to store Assets in
+ */
 function createContentfulPosts(environment, assets) {
   console.log(`Creating Contentful Posts...`)
   console.log(logSeparator)
@@ -382,7 +442,7 @@ function createContentfulPosts(environment, assets) {
   /**
    * Dynamically build our Contentful data object
    * using the keys we built whilst reducing the WP Post data.alias
-   * 
+   *
    * Results:
    *  postTitle: {
    *    'en-GB': wpPost.postTitle
@@ -455,13 +515,18 @@ function createContentfulPosts(environment, assets) {
     });
 }
 
+/**
+ * For each post data tree, publish a Contentful entry.
+ * @param {String} environment - Name of Contentful Environment.
+ * @param {Array} promises - data trees for Contentful posts.
+ */
 function createContentfulEntries(environment, promises) {
   return Promise.all(promises.map((post, index) => new Promise(async resolve => {
 
     let newPost
 
     console.log(`Attempting: ${post.slug['en-GB']}`)
-  
+
     setTimeout(() => {
       try {
         newPost = environment.createEntry('blogPost', {
@@ -480,7 +545,13 @@ function createContentfulEntries(environment, promises) {
   })));
 }
 
-// Ideally we'd be using Markdown here, but I like the RichText editor 🤡
+/**
+ * Convert WordPress content to Contentful Rich Text
+ * Ideally we'd be using Markdown here, but I like the RichText editor 🤡
+ *
+ * Note: Abandoned because it did not seem worth the effort.
+ * @param {String} content - WordPress post content.
+ */
 function formatRichTextPost(content) {
   // TODO: split  at paragraphs, create a node for each.
   console.log(logSeparator)
