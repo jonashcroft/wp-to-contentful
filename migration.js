@@ -4,8 +4,8 @@ const fs = require('fs');
 const TurndownService = require('turndown')
 
 /**
- * Global variables that we're gonna use throughout this script
- *
+ * Global variables that we're going use throughout this script
+ * -----------------------------------------------------------------------------
  */
 
 /**
@@ -108,7 +108,9 @@ turndownService.addRule('replaceWordPressImages', {
 
 /**
  * Main Migration Script.
+ * -----------------------------------------------------------------------------
  */
+
 function migrateContent() {
   let promises = [];
 
@@ -197,17 +199,6 @@ function mapData() {
   console.log(logSeparator)
 
   writeDataToFile(wpData, 'wpPosts');
-
-
-  // for (let [index, wpPost] of wpData.posts.entries()) {
-  //   let formattedPost = formatRichTextPost(wpPost.content)
-
-  //   console.log(formattedPost)
-  // }
-
-  // return
-
-  // console.log(logSeparator)
   createForContentful();
 }
 
@@ -236,7 +227,11 @@ function getPostBodyImages(postData) {
   }
 
   while (foundImage = imageRegex.exec(postData.content.rendered)) {
-    let alt = foundImage[0].split('alt="')[1].split('"')[0]
+    let alt = postData.id
+
+    if (foundImage[0].includes('alt="')) {
+      alt = foundImage[0].split('alt="')[1].split('"')[0] || ''
+    }
 
     bodyImages.push({
       link: foundImage[1],
@@ -550,6 +545,8 @@ function createContentfulEntries(environment, promises) {
  * Ideally we'd be using Markdown here, but I like the RichText editor 🤡
  *
  * Note: Abandoned because it did not seem worth the effort.
+ * Leaving this here in case anybody does decide to venture this way.
+ *
  * @param {String} content - WordPress post content.
  */
 function formatRichTextPost(content) {
